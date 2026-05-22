@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가장 쉬운 PPO 알고리즘 탐구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        .code-font { font-family: 'Fira Code', monospace; }
+        .slide { display: none; height: calc(100vh - 120px); }
+        .slide.active { display: flex; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.5s ease-out forwards; }
+        
+        /* 텍스트 강조용 형광펜 효과 */
+        .highlight-text {
+            background: linear-gradient(120deg, rgba(56, 189, 248, 0.2) 0%, rgba(56, 189, 248, 0) 100%);
+            padding: 0 4px;
+            border-bottom: 2px solid #38bdf8;
+        }
+    </style>
+</head>
+<body class="overflow-hidden flex flex-col justify-between min-h-screen">
+
+    <!-- Header -->
+    <header class="px-8 py-4 bg-[#0f172a] border-b border-slate-800 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <span class="bg-sky-500 text-[#0b0f19] font-bold px-3 py-1 rounded text-sm">초보자를 위한 AI 세미나</span>
+            <span class="font-medium text-slate-300">PPO (Proximal Policy Optimization) 완전 정복</span>
+        </div>
+    </header>
+
+    <!-- Slides Container -->
+    <main class="flex-grow flex items-center justify-center p-6">
+        <div class="w-full max-w-6xl h-full flex items-center justify-center">
+
+            <!-- 슬라이드 1: 표지 -->
+            <div class="slide active animate-fade flex-col justify-center items-center text-center w-full">
+                <div class="mb-4 text-emerald-400 font-bold tracking-widest uppercase text-lg">AI가 학습하는 가장 안전한 방법</div>
+                <h1 class="text-6xl font-black text-white mb-6 leading-tight">
+                    왕초보도 이해하는<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">PPO 알고리즘</span>
+                </h1>
+                <p class="text-xl text-slate-400 max-w-2xl mb-12 leading-relaxed">
+                    수식과 코드를 몰라도 괜찮습니다.<br>자전거 배우기와 강아지 훈련 비유를 통해 ChatGPT를 똑똑하게 만든<br>핵심 기술을 완벽하게 이해해 봅시다.
+                </p>
+                <div class="flex gap-4 justify-center">
+                    <div class="px-5 py-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-bicycle text-sky-400"></i>
+                        <span class="text-sm text-slate-300 font-medium">일상적인 비유</span>
+                    </div>
+                    <div class="px-5 py-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                        <span class="text-sm text-slate-300 font-medium">직관적인 시뮬레이션</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 2: 강화학습이란? -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-6">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">01. INTRO</span>
+                    <h2 class="text-3xl font-bold text-white">강화학습이란? (당근과 채찍)</h2>
+                </div>
+                <div class="flex flex-col md:flex-row gap-8 items-center mt-4">
+                    <div class="flex-1 space-y-6 text-lg text-slate-300">
+                        <p>인공지능을 학습시키는 방법 중 하나인 <strong>'강화학습(Reinforcement Learning)'</strong>은 강아지에게 '앉아!'를 가르치는 것과 똑같습니다.</p>
+                        <ul class="space-y-4">
+                            <li class="flex items-start gap-3">
+                                <i class="fa-solid fa-bone text-emerald-400 mt-1"></i>
+                                <span>잘한 행동(앉기)을 하면 <strong>간식(보상)</strong>을 줍니다. -> 그 행동을 더 자주 하게 됨</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fa-solid fa-xmark text-rose-400 mt-1"></i>
+                                <span>나쁜 행동(물기)을 하면 <strong>혼(패널티)</strong>을 냅니다. -> 그 행동을 안 하게 됨</span>
+                            </li>
+                        </ul>
+                        <p class="text-sky-300 bg-sky-900/20 p-4 rounded-xl border border-sky-800">
+                            결과적으로 AI는 <strong>"어떻게 행동해야 보상을 가장 많이 받을까?"</strong>를 스스로 깨닫는 자신만의 룰(정책, Policy)을 만들게 됩니다.
+                        </p>
+                    </div>
+                    <div class="flex-1 bg-slate-900 rounded-2xl p-8 border border-slate-800 text-center">
+                        <i class="fa-solid fa-dog text-6xl text-slate-400 mb-4"></i>
+                        <h3 class="text-xl font-bold text-white mb-2">AI = 훈련받는 강아지</h3>
+                        <div class="flex justify-around mt-6">
+                            <div class="text-center">
+                                <div class="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-2 text-2xl">🥩</div>
+                                <span class="text-sm text-slate-400">+100점 (보상)</span>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-2 text-2xl">⚡</div>
+                                <span class="text-sm text-slate-400">-50점 (패널티)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 3: 기존 문제점 -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-6">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">02. THE PROBLEM</span>
+                    <h2 class="text-3xl font-bold text-white">기존 방식의 문제: 너무 큰 깨달음의 부작용</h2>
+                </div>
+                <div class="bg-slate-900/50 p-6 rounded-2xl border border-slate-800/80 mb-6">
+                    <h3 class="text-xl font-bold text-rose-400 mb-2">자전거 타기를 배울 때를 상상해 보세요.</h3>
+                    <p class="text-slate-300 leading-relaxed mb-4">
+                        자전거를 타다가 몸이 오른쪽으로 기울었을 때, <strong>"아! 왼쪽으로 핸들을 꺾어야겠다!"</strong>라는 깨달음을 얻습니다.
+                    </p>
+                    <p class="text-slate-300 leading-relaxed">
+                        하지만 초보자가 이 깨달음에 너무 흥분해서 <strong>핸들을 왼쪽으로 '확!' 꺾어버리면 어떻게 될까요?</strong><br>
+                        반대편으로 심하게 넘어지면서 오히려 자전거 타는 법을 완전히 까먹거나 다치게 됩니다. (이를 AI 용어로는 <span class="text-rose-400 font-bold">학습 붕괴, Catastrophic Forgetting</span>라고 합니다)
+                    </p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1 bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                        <div class="text-amber-400 font-bold mb-2"><i class="fa-solid fa-triangle-exclamation"></i> 기존 방식 (Policy Gradient)</div>
+                        <p class="text-sm text-slate-400">좋은 결과를 얻으면 핸들을 확 꺾어버려서 종종 학습이 완전히 망가짐.</p>
+                    </div>
+                    <div class="flex-1 bg-sky-900/20 p-5 rounded-xl border border-sky-800/50">
+                        <div class="text-sky-400 font-bold mb-2"><i class="fa-solid fa-lightbulb"></i> PPO의 아이디어</div>
+                        <p class="text-sm text-slate-400"><strong>"아무리 좋은 깨달음을 얻어도, 한 번에 조금씩만 핸들을 꺾게 만들자!"</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 4: PPO의 수식 (쉬운 번역) -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-4">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">03. MATHEMATICAL CORE</span>
+                    <h2 class="text-3xl font-bold text-white">수식을 일상어로 번역하기: 20% 안전벨트</h2>
+                </div>
+                <p class="text-slate-300 text-sm mb-6">PPO의 논문에 나오는 무서운 수식은 사실 아주 단순한 <strong>"안전벨트 규칙"</strong>일 뿐입니다.</p>
+                
+                <!-- Formula Box -->
+                <div class="bg-slate-950 border border-emerald-500/30 rounded-2xl p-6 text-center shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center gap-6">
+                    <div class="code-font text-lg md:text-xl text-emerald-300 font-semibold bg-black p-4 rounded-xl">
+                        min( r(&theta;) × A , <span class="text-rose-400">clip(r(&theta;), 0.8, 1.2)</span> × A )
+                    </div>
+                    <div class="text-left flex-1">
+                        <p class="text-xl font-bold text-white mb-2">💡 한 줄 요약:</p>
+                        <p class="text-slate-300 leading-relaxed">
+                            "어떤 행동으로 칭찬(A)을 받았을 때, 그 행동을 할 확률(r)을 높이되, <strong>이전보다 최대 1.2배(20%)까지만</strong> 높이도록 잘라버려라(Clip)!"
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                        <span class="text-sky-400 font-bold block text-lg mb-2">r(&theta;) <span class="text-sm font-normal text-slate-400">행동 변화량</span></span>
+                        <p class="text-slate-400 text-sm">과거의 나에 비해 새로운 내가 이 행동을 얼마나 더 자주 하려고 하는가?</p>
+                    </div>
+                    <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                        <span class="text-emerald-400 font-bold block text-lg mb-2">A <span class="text-sm font-normal text-slate-400">어드밴티지 (칭찬)</span></span>
+                        <p class="text-slate-400 text-sm">이 행동이 평소보다 얼마나 더 좋은 결과를 가져왔는가?</p>
+                    </div>
+                    <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-800 border-t-4 border-t-rose-400">
+                        <span class="text-rose-400 font-bold block text-lg mb-2">Clip (0.8 ~ 1.2)</span>
+                        <p class="text-slate-400 text-sm">핵심 안전장치. 아무리 칭찬을 많이 받아도 한 번에 행동 패턴을 20% 넘게 바꾸지 못하게 브레이크를 겁니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 5: 인터랙티브 시뮬레이션 (경주) -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-4">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">04. INTERACTIVE SIMULATION</span>
+                    <h2 class="text-3xl font-bold text-white">눈으로 보는 차이: AI 학습 레이스</h2>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">아래 [학습 진행] 버튼을 눌러보세요. 제한이 없는 AI(빨간색)는 크게 도약하려다 자주 무너지지만, PPO(초록색)는 안전하게 최고 성능에 도달합니다.</p>
+                
+                <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col gap-4">
+                    <!-- 컨트롤 패널 -->
+                    <div class="flex justify-between items-center">
+                        <div class="flex gap-4">
+                            <div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full bg-rose-500"></span> <span class="text-slate-300">일반 AI (안전벨트 없음)</span></div>
+                            <div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> <span class="text-slate-300">PPO AI (20% 제한)</span></div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="btn-step" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold text-sm transition shadow-lg shadow-sky-500/20"><i class="fa-solid fa-play mr-1"></i> 한 번 학습</button>
+                            <button id="btn-auto" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-sm transition"><i class="fa-solid fa-forward-fast mr-1"></i> 자동 학습</button>
+                            <button id="btn-reset" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"><i class="fa-solid fa-rotate-left"></i> 초기화</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 캔버스 (그래프 영역) -->
+                    <div class="relative w-full h-[300px] bg-[#020617] rounded-xl border border-slate-800 overflow-hidden">
+                        <canvas id="raceCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+                        <!-- Y축 라벨 -->
+                        <div class="absolute left-2 top-2 text-[10px] text-slate-500">성능 (Performance)</div>
+                        <div class="absolute left-2 bottom-2 text-[10px] text-slate-500">0</div>
+                        <div class="absolute left-2 top-[50%] text-[10px] text-slate-500">500</div>
+                        <div class="absolute left-2 top-0 text-[10px] text-slate-500">1000 (목표)</div>
+                        <!-- X축 라벨 -->
+                        <div class="absolute right-2 bottom-2 text-[10px] text-slate-500">학습 횟수 (Episode) -></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 6: 파이토치 코드 (주석 번역) -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-4">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">05. THE CODE</span>
+                    <h2 class="text-3xl font-bold text-white">현업에서는 코드로 어떻게 짤까?</h2>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">앞서 배운 '20% 안전벨트(Clipping)' 원리가 실제 PyTorch 코드로는 단 한 줄로 구현됩니다.</p>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl relative">
+                    <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
+                        <span class="text-xs text-slate-400 font-mono">ppo_core.py</span>
+                        <span class="flex gap-1.5"><span class="w-3 h-3 rounded-full bg-slate-700"></span><span class="w-3 h-3 rounded-full bg-slate-700"></span><span class="w-3 h-3 rounded-full bg-slate-700"></span></span>
+                    </div>
+                    <pre class="p-6 text-xs md:text-sm text-slate-300 overflow-x-auto code-font leading-loose"><code><span class="text-rose-400">def</span> <span class="text-sky-400">ppo_loss</span>(ratios, advantages):
+    <span class="text-emerald-400 font-sans font-bold"># 1. 제한 없이 깨달은 대로 반영해보기 (일반적인 방식)</span>
+    surr1 = ratios * advantages
+    
+    <span class="text-emerald-400 font-sans font-bold"># 2. 안전벨트 작동! 아무리 변해도 0.8 ~ 1.2 사이로 잘라버리기 (Clip)</span>
+    clipped_ratios = torch.<span class="text-amber-400">clamp</span>(ratios, min=0.8, max=1.2)
+    surr2 = clipped_ratios * advantages
+    
+    <span class="text-emerald-400 font-sans font-bold"># 3. 둘 중 '더 보수적인(작은)' 값을 최종으로 선택 (급발진 방지)</span>
+    final_loss = -torch.<span class="text-amber-400">min</span>(surr1, surr2).mean()
+    
+    <span class="text-rose-400">return</span> final_loss</code></pre>
+                    <!-- 말풍선 -->
+                    <div class="absolute right-8 top-16 bg-sky-900/80 border border-sky-400 p-3 rounded-xl rounded-tr-none text-xs text-white max-w-xs shadow-lg backdrop-blur-sm hidden md:block">
+                        💡 바로 이 <strong>torch.clamp( ..., 0.8, 1.2 )</strong> 코드가 인공지능이 무너지지 않고 꾸준히 똑똑해지게 만드는 마법의 함수입니다!
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 7: PPO의 실제 쓰임새 -->
+            <div class="slide animate-fade flex-col justify-center w-full">
+                <div class="border-l-4 border-sky-500 pl-4 mb-6">
+                    <span class="text-sm text-sky-400 font-semibold tracking-wider">06. APPLICATIONS</span>
+                    <h2 class="text-3xl font-bold text-white">우리의 일상에 들어온 PPO</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                    <div class="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 group hover:border-emerald-500/50 transition duration-300">
+                        <div class="text-5xl mb-4 text-emerald-400 group-hover:scale-110 transition duration-300"><i class="fa-solid fa-comments"></i></div>
+                        <h3 class="text-2xl font-bold text-white mb-2">ChatGPT (LLM)</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            ChatGPT가 이상한 소리를 하지 않고, 사람의 의도에 맞게 예의 바르고 정확하게 대답하도록 가르치는 <strong>RLHF(인간 피드백 기반 강화학습)</strong>의 핵심 엔진이 바로 PPO입니다.
+                        </p>
+                    </div>
+                    <div class="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 group hover:border-sky-500/50 transition duration-300">
+                        <div class="text-5xl mb-4 text-sky-400 group-hover:scale-110 transition duration-300"><i class="fa-solid fa-robot"></i></div>
+                        <h3 class="text-2xl font-bold text-white mb-2">로봇 공학과 게임 AI</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            테슬라의 휴머노이드 로봇이 넘어지지 않고 걷게 하거나, 프로게이머를 이기는 인공지능(OpenAI Five)을 훈련시킬 때 가장 안정적이고 널리 쓰이는 표준 알고리즘입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 슬라이드 8: 마무리 -->
+            <div class="slide animate-fade flex-col justify-center items-center text-center w-full">
+                <div class="mb-6"><i class="fa-solid fa-flag-checkered text-6xl text-emerald-400"></i></div>
+                <h2 class="text-5xl font-black text-white mb-6">수고하셨습니다!</h2>
+                <p class="text-xl text-slate-300 max-w-xl mb-8 leading-relaxed">
+                    복잡한 수식 없이도, AI가 어떻게 <strong>'안전벨트(20% 룰)'</strong>를 매고<br>안정적으로 발전하는지 이제 완벽히 이해하셨습니다.
+                </p>
+                <div class="bg-slate-900 px-6 py-3 rounded-full border border-slate-800 text-sm text-slate-400 shadow-xl">
+                    질문이 있으시다면 편하게 말씀해 주세요. <i class="fa-regular fa-face-smile text-sky-400 ml-1"></i>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer Controller -->
+    <footer class="px-8 py-5 bg-[#0f172a] border-t border-slate-800 flex justify-between items-center z-10">
+        <button onclick="changeSlide(-1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition text-sm font-medium disabled:opacity-30" id="prev-btn">
+            <i class="fa-solid fa-chevron-left mr-2"></i> 이전
+        </button>
+        <span class="text-sm font-mono text-sky-400 font-bold" id="indicator">1 / 8</span>
+        <button onclick="changeSlide(1)" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-[#0b0f19] rounded-lg transition text-sm font-semibold" id="next-btn">
+            다음 <i class="fa-solid fa-chevron-right ml-2"></i>
+        </button>
+    </footer>
+
+    <!-- Interactive Scripting -->
+    <script>
+        // --- 1. 슬라이드 네비게이션 ---
+        let activeSlideIndex = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const indicator = document.getElementById('indicator');
+
+        function updateSlideUI() {
+            slides.forEach((slide, index) => {
+                if (index === activeSlideIndex) slide.classList.add('active');
+                else slide.classList.remove('active');
+            });
+            prevBtn.disabled = activeSlideIndex === 0;
+            if (activeSlideIndex === slides.length - 1) {
+                nextBtn.innerHTML = `처음으로 <i class="fa-solid fa-rotate-left ml-2"></i>`;
+                nextBtn.classList.replace('bg-sky-500', 'bg-emerald-500');
+            } else {
+                nextBtn.innerHTML = `다음 <i class="fa-solid fa-chevron-right ml-2"></i>`;
+                nextBtn.classList.replace('bg-emerald-500', 'bg-sky-500');
+            }
+            indicator.textContent = `${activeSlideIndex + 1} / ${slides.length}`;
+            
+            // 시뮬레이션 슬라이드(인덱스 4)에 진입했을 때 캔버스 크기를 다시 계산하여 활성화
+            if (activeSlideIndex === 4) {
+                setTimeout(initCanvas, 50);
+            }
+        }
+
+        function changeSlide(direction) {
+            if (direction === 1 && activeSlideIndex === slides.length - 1) activeSlideIndex = 0;
+            else {
+                activeSlideIndex += direction;
+                if (activeSlideIndex < 0) activeSlideIndex = 0;
+                if (activeSlideIndex >= slides.length) activeSlideIndex = slides.length - 1;
+            }
+            updateSlideUI();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') changeSlide(1);
+            else if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+
+        // --- 2. 캔버스 시뮬레이션 (Race) ---
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        
+        let raceData = [];
+        let currentStep = 0;
+        const maxSteps = 100;
+        
+        // 상태 변수
+        let vanillaScore = 100;
+        let ppoScore = 100;
+        
+        // 애니메이션 ID
+        let autoPlayId = null;
+
+        function initCanvas() {
+            // 부모 요소에 맞춰 캔버스 크기 조정 (화면에 안 보일 땐 clientWidth가 0)
+            const newWidth = canvas.parentElement.clientWidth;
+            const newHeight = canvas.parentElement.clientHeight;
+            
+            if (newWidth === 0 || newHeight === 0) return; // 화면에 안 보일 땐 연산 무시
+            
+            width = newWidth;
+            height = newHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            // 데이터가 비어있다면 새로 시작하고, 있다면 기존 데이터를 다시 그리기
+            if (raceData.length === 0) {
+                resetSim();
+            } else {
+                drawChart();
+            }
+        }
+
+        function resetSim() {
+            currentStep = 0;
+            vanillaScore = 100;
+            ppoScore = 100;
+            raceData = [{ step: 0, v: vanillaScore, p: ppoScore }];
+            stopAuto();
+            drawChart();
+        }
+
+        function stepSim() {
+            if (currentStep >= maxSteps) {
+                stopAuto();
+                return;
+            }
+            currentStep++;
+
+            // 랜덤한 깨달음(기울기) 생성 (때로는 좋고, 때로는 나쁨)
+            // -0.5 ~ 1.5 사이의 랜덤 값 (평균적으로는 성장하도록)
+            let learningSignal = (( Math.random()-0.05 ) * 2) - 0.5; 
+            
+            // 때때로 매우 강렬한(위험한) 깨달음 발생
+            if(Math.random() < 0.15) learningSignal *= 5;
+
+            // 1. 일반 AI (제한 없음)
+            let vanillaJump = learningSignal * 75; 
+            vanillaScore += vanillaJump;
+            
+            // 너무 크게 변하면 자전거에서 넘어짐 (성능 급락)
+            if (Math.abs(vanillaJump) > 150) {
+                vanillaScore -= 400; // 치명적 망각(Catastrophic Forgetting)
+            }
+            // 0 이하로 떨어지지 않게, 1050 이상 안 넘게 방어
+            vanillaScore = Math.max(0, Math.min(1050, vanillaScore));
+
+            // 2. PPO AI (20% 제한 = 안전벨트)
+            // 아무리 깨달음이 커도 최대 변동폭을 -30 ~ +60 정도로 제한 (Clip)
+            let ppoJump = Math.max(-15, Math.min(50, learningSignal * 100)); 
+            ppoScore += ppoJump;
+            ppoScore = Math.max(0, Math.min(1000, ppoScore));
+
+            raceData.push({ step: currentStep, v: vanillaScore, p: ppoScore });
+            drawChart();
+        }
+
+        function drawChart() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // 배경 그리드
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for(let i=1; i<5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, height * (i/5));
+                ctx.lineTo(width, height * (i/5));
+                ctx.stroke();
+            }
+
+            const stepWidth = width / maxSteps;
+            
+            // 그리기 함수
+            function drawLine(key, color, shadowColor) {
+                ctx.beginPath();
+                ctx.moveTo(0, height - (raceData[0][key] / 1000) * height);
+                for(let i=1; i<raceData.length; i++) {
+                    let x = i * stepWidth;
+                    let y = height - (raceData[i][key] / 1000) * height;
+                    ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = shadowColor;
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // 초기화
+                
+                // 끝점 그리기
+                const lastIdx = raceData.length - 1;
+                const lastX = lastIdx * stepWidth;
+                const lastY = height - (raceData[lastIdx][key] / 1000) * height;
+                ctx.beginPath();
+                ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+
+            // 일반 AI (빨강)
+            drawLine('v', '#f43f5e', 'rgba(244, 63, 94, 0.5)');
+            // PPO AI (초록)
+            drawLine('p', '#10b981', 'rgba(16, 185, 129, 0.5)');
+        }
+
+        let isAutoPlaying = false;
+        function toggleAuto() {
+            if (isAutoPlaying) {
+                stopAuto();
+            } else {
+                if (currentStep >= maxSteps) resetSim();
+                isAutoPlaying = true;
+                document.getElementById('btn-auto').innerHTML = `<i class="fa-solid fa-pause mr-1"></i> 일시정지`;
+                autoPlayId = setInterval(stepSim, 50); // 빠른 재생
+            }
+        }
+
+        function stopAuto() {
+            isAutoPlaying = false;
+            document.getElementById('btn-auto').innerHTML = `<i class="fa-solid fa-forward-fast mr-1"></i> 자동 학습`;
+            clearInterval(autoPlayId);
+        }
+
+        // 이벤트 리스너 바인딩
+        document.getElementById('btn-step').addEventListener('click', stepSim);
+        document.getElementById('btn-auto').addEventListener('click', toggleAuto);
+        document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+        // 창 크기 변경 시 캔버스 리사이즈
+        window.addEventListener('resize', initCanvas);
+        
+        // 초기화 실행
+        setTimeout(initCanvas, 100); 
+
+    </script>
+</body>
+</html>```
+
+```
